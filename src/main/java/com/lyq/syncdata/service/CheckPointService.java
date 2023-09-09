@@ -1,13 +1,19 @@
 package com.lyq.syncdata.service;
 
-import com.lyq.syncdata.netty.SaveDataProcessor;
+import com.lyq.syncdata.constant.SyncDataConsts;
 import com.lyq.syncdata.pojo.CheckPointFileInfo;
 import com.lyq.syncdata.pojo.FileInfo;
 import com.lyq.syncdata.pojo.Progress;
 import javafx.util.Pair;
 
 import java.io.File;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.RecursiveTask;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,7 +26,7 @@ public class CheckPointService {
     public static List<CheckPointFileInfo> getNeedUploadFiles(Progress progress, List<String> dataPath){
         List<CheckPointFileInfo> needSaveDataPath = new ArrayList<>();
 
-        Map<String, Pair<String, Integer>> localFilePathMap = new HashMap<>(dataPath.size());
+        Map<String, Pair<String, Integer>> localFilePathMap = new TreeMap<>();
         for (int i = 0; i < dataPath.size(); i++) {
             String path = dataPath.get(i);
             localFilePathMap.put(path.substring(path.lastIndexOf("/") + 1), new Pair<>(path, i));
@@ -60,7 +66,7 @@ public class CheckPointService {
     }
 
     public Progress getNewProgress(){
-        File storeRootDir = new File(SaveDataProcessor.getRootDir());
+        File storeRootDir = new File(SyncDataConsts.rootDir);
         Progress progress = new Progress();
         if(storeRootDir.exists() && storeRootDir.isDirectory()){
             List<FileInfo> fileInfos = Optional.of(storeRootDir).map(File::listFiles).map((files) -> Arrays.stream(files).map(file -> {

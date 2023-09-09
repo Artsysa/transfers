@@ -19,7 +19,7 @@ public class ClientManager {
     public static void registerClient(Command command, ChannelHandlerContext ctx){
         clientMap.put(command.getClientUnique(), ctx);
         System.out.println("register---" + command.getClientUnique());
-        RemotingServiceWapper.responseSuccess(command);
+        RemotingServiceWapper.responseSuccess(command, ctx);
     }
 
     public static ChannelHandlerContext getClientChannel(Long clientId){

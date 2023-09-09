@@ -1,6 +1,5 @@
 package com.lyq.syncdata.service;
 
-import com.lyq.syncdata.netty.SaveDataProcessor;
 import com.lyq.syncdata.pojo.SyncDataCommand;
 import com.lyq.syncdata.pojo.UploadFile;
 import io.netty.channel.ChannelHandlerContext;
@@ -49,7 +48,7 @@ public class BigDataService {
                     fileMap.remove(uploadFile.getId());
                     randomAccessFile.close();
                 }
-                ctx.writeAndFlush(SaveDataProcessor.buildResponse(command, true));
+                ctx.writeAndFlush(SyncDataCommand.buildResponse(command, true));
             } catch (IOException e) {
                 e.printStackTrace();
             }

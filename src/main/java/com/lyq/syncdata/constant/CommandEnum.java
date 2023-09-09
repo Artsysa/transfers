@@ -10,7 +10,10 @@ public enum CommandEnum {
     DOWONLOAD_FILE(8, "下载所有文件"),
     DOWONLOAD_PICTURE(10, "下载图片"),
     SEND_CLIENT_PROGRESS(7,"客户端向服务器发送当前最新进度"),
-    TIMEOUT(10,"超时"),
+    TIMEOUT(11,"超时"),
+    COPY_DATA(12,"粘贴数据"),
+    CREATE_FILE(13,"预先创建文件"),
+    ORDER_FILE(14,"获取文件顺序"),
     GET_SYNC_PROGRESS(6, "获取最新数据同步进度");
 
 

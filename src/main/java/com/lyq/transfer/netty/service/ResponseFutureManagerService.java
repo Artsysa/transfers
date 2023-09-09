@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 public class ResponseFutureManagerService {
 
 
-    private final static Map<Long, ResponseFuture> futureMap;
+    private static final Map<Long, ResponseFuture> futureMap;
 
     private final static ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
 
@@ -32,7 +32,7 @@ public class ResponseFutureManagerService {
                 if (currentTimeStamp - createTimeStamp >= 60000) {
                     responseFuture.setResponse(CommandAdapter.buildFailCommand(responseFuture.getRequest()));
                     if (Objects.isNull(responseFuture.getCallable())) {
-                        responseFuture.realse();
+                        responseFuture.release();
                     } else {
                         CommonThreadService.submitTask(() -> {
                             responseFuture.getCallable().invoke(responseFuture.getResponse());

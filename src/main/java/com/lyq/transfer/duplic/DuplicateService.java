@@ -1,9 +1,12 @@
 package com.lyq.transfer.duplic;
 
-import com.alibaba.fastjson.JSON;
-import com.lyq.syncdata.constant.SyncDataConsts;
-import org.apache.tomcat.util.buf.HexUtils;
-import org.springframework.util.CollectionUtils;
+import cn.hutool.core.collection.CollectionUtil;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.lyq.transfer.constant.CommonConsts;
+import com.lyq.transfer.index.IndexElement;
+import com.lyq.transfer.index.IndexService;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -11,14 +14,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * created by lyq
@@ -26,50 +29,46 @@ import java.util.Map;
 public class DuplicateService {
 
     public static void main(String[] args) throws NoSuchAlgorithmException, IOException {
-        Map<String, String> duplicateMap = duplicateFile(SyncDataConsts.oneplusDir);
-        Map<String, List<String>> map = new HashMap<>();
-        duplicateMap.forEach((key, value) -> {
-            List<String> duplicateName = map.get(value);
-            if (CollectionUtils.isEmpty(duplicateName)) {
-                List<String> list = new ArrayList<>();
-                list.add(key);
-                map.put(value, list);
-            } else {
-                duplicateName.add(key);
+        duplicateFile();
+    }
+
+    public static void duplicateFile() {
+        Map<String, IndexElement> indexElementMap = Optional.ofNullable(IndexService.getIndexElementWapper().getIndexElementList())
+                .filter(CollectionUtil::isNotEmpty)
+                .map((list) -> list.stream().collect(Collectors.toMap(IndexElement::getPath, Function.identity())))
+                .orElse(Maps.newHashMap());
+
+        Set<String> md5Set = Sets.newHashSet();
+        Map<String, List<String>> duplicFileAbstractMap = Maps.newHashMap();
+        AtomicInteger duplicateCount = new AtomicInteger();
+        indexElementMap.forEach((path, indexElement) -> {
+            if(!md5Set.add(indexElement.getMD5())){
+                List<String> duplicAbstractPathList = duplicFileAbstractMap.get(indexElement.getMD5());
+                if(org.apache.commons.collections4.CollectionUtils.isEmpty(duplicAbstractPathList)){
+                    duplicAbstractPathList = Lists.newArrayList();
+                    duplicFileAbstractMap.put(indexElement.getMD5(), duplicAbstractPathList);
+                }
+                duplicAbstractPathList.add(path);
+                duplicateCount.getAndIncrement();
             }
         });
-        System.out.println(JSON.toJSONString(map));
-    }
 
-    public static Map<String, String> duplicateFile(String path) throws NoSuchAlgorithmException, IOException {
-        Map<String, String> duplicateMap = new HashMap<>();
-        Map<String, String> duplicate = new HashMap<>();
-        File duplicateDir = new File(path);
-        File[] hasDuplicateFile = duplicateDir.listFiles();
-        MessageDigest digest = MessageDigest.getInstance("MD5");
-
-        for (File file : hasDuplicateFile) {
-            if(file.isDirectory()){
-                continue;
-            }
-            byte[] md5 = digest.digest(Files.readAllBytes(Paths.get(file.getAbsolutePath())));
-
-            String unique = HexUtils.toHexString(md5);
-
-            if(duplicateMap.containsKey(unique)){
-                duplicate.put(file.getName(), duplicateMap.get(unique));
-                transfer(file.getAbsolutePath(), path + "/duplicate/" + file.getName());
-                file.delete();
-                continue;
-            }
-
-            duplicateMap.put(unique, file.getName());
-
+        File duplicDir = new File(CommonConsts.duplicDir);
+        if(!duplicDir.exists()){
+            duplicDir.mkdirs();
         }
-        return duplicate;
+
+        duplicFileAbstractMap.forEach((md5, duplicFileAbstractPathList) -> {
+            for (String path : duplicFileAbstractPathList) {
+                File file = new File(path);
+                transfer(file.getAbsolutePath(), CommonConsts.duplicDir + "/" + file.getName());
+                file.delete();
+            }
+        });
+
     }
 
-    private static void transfer(String oriPath, String aimPaht){
+    public static void transfer(String oriPath, String aimPaht){
         File fileAim = new File(aimPaht);
         File fileTemp = new File(oriPath);
         if(!fileAim.exists()){

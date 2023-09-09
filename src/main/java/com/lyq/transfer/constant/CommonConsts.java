@@ -20,6 +20,7 @@ public class CommonConsts {
     public static final String indexFile = StringUtils.join(indexDir, "/index.json");
 
     public static final String tempDir = StringUtils.join(baseDir, "/temp");
+    public static final String duplicDir = StringUtils.join(baseDir, "/duplicate");
 
     public static final Long client_unique = IdUtil.getSnowflakeNextId();
 

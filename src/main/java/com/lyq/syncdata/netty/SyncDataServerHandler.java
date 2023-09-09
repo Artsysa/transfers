@@ -3,6 +3,7 @@ package com.lyq.syncdata.netty;
 import com.alibaba.fastjson.JSON;
 import com.lyq.syncdata.pojo.SyncDataCommand;
 import com.lyq.syncdata.service.BigDataService;
+import com.lyq.syncdata.service.ClientManager;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -29,10 +30,13 @@ public class SyncDataServerHandler extends SimpleChannelInboundHandler<SyncDataC
 
     private final BigDataService bigDataService;
 
-    public SyncDataServerHandler(ThreadPoolExecutor commonThreads, RequestManager requestManager, BigDataService bigDataService) {
+    private final ClientManager clientManager;
+
+    public SyncDataServerHandler(ThreadPoolExecutor commonThreads, RequestManager requestManager, BigDataService bigDataService, ClientManager clientManager) {
         this.commonThreads = commonThreads;
         this.requestManager = requestManager;
         this.bigDataService = bigDataService;
+        this.clientManager = clientManager;
         initProcessor();
     }
 
@@ -67,6 +71,13 @@ public class SyncDataServerHandler extends SimpleChannelInboundHandler<SyncDataC
         for (SyncDataCommandProcessor syncDataCommandProcessor : syncDataCommandProcessorList) {
             syncDataCommandProcessor.unconnection();
         }
+        clientManager.remove(ctx);
         super.channelUnregistered(ctx);
+    }
+
+    @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        clientManager.registClient(ctx);
+        super.channelRegistered(ctx);
     }
 }

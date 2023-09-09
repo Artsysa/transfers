@@ -1,5 +1,9 @@
 package com.lyq.syncdata.pojo;
 
+import com.alibaba.fastjson.JSON;
+import com.lyq.syncdata.constant.CommandEnum;
+import com.lyq.syncdata.constant.ServerResponseEnum;
+
 /**
  * created by lyq
  */
@@ -39,5 +43,21 @@ public class SyncDataCommand {
 
     public void setLength(Integer length) {
         this.length = length;
+    }
+
+    public static SyncDataCommand buildResponse(SyncDataCommand clientCommand, boolean success){
+        SyncDataCommand syncDataCommand = new SyncDataCommand();
+        syncDataCommand.setCommandId(clientCommand.getCommandId());
+        syncDataCommand.setCode(CommandEnum.SERVER_RESPONSE.getCode());
+        ServerResponse serverResponse = new ServerResponse();
+        if(success){
+            serverResponse.setCode(ServerResponseEnum.SAVE_SUCCESS.getCode());
+        }else{
+            serverResponse.setCode(ServerResponseEnum.SAVE_ERROR.getCode());
+            serverResponse.setDescription(ServerResponseEnum.SAVE_ERROR.getDescription());
+        }
+        syncDataCommand.setBody(JSON.toJSONBytes(serverResponse));
+        syncDataCommand.setLength(syncDataCommand.getBody().length);
+        return syncDataCommand;
     }
 }

@@ -33,7 +33,7 @@ public class FileUtil {
 
 
     public static String calculateMD5(String filePath)  {
-        byte[] buffer = new byte[8192];
+        byte[] buffer = new byte[1 << 20];
 
         try (FileInputStream fis = new FileInputStream(filePath)) {
             int bytesRead;

@@ -1,6 +1,7 @@
 package com.lyq.syncdata.netty;
 
 import com.lyq.syncdata.service.BigDataService;
+import com.lyq.syncdata.service.ClientManager;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -25,8 +26,11 @@ public class NettyServerConfig {
 
     private final BigDataService bigDataService;
 
+    private final ClientManager clientManager;
+
 
     public NettyServerConfig() {
+        clientManager = new ClientManager();
         requestManager = new RequestManager();
         bigDataService = new BigDataService();
         commonThreads  =  new ThreadPoolExecutor(
@@ -42,7 +46,7 @@ public class NettyServerConfig {
 
     public void startNettyServer(){
         NioEventLoopGroup work = new NioEventLoopGroup();
-        NioEventLoopGroup boss = new NioEventLoopGroup();
+        NioEventLoopGroup boss = new NioEventLoopGroup(1);
         ServerBootstrap serverBootstrap = new ServerBootstrap();
         serverBootstrap.group(boss, work)
                 .channel(NioServerSocketChannel.class)
@@ -50,9 +54,13 @@ public class NettyServerConfig {
                     protected void initChannel(NioSocketChannel ch) {
                         ch.pipeline().addLast(new CommandDecoder()); //
                         ch.pipeline().addLast(new CommandEncoder()); //
-                        ch.pipeline().addLast(new SyncDataServerHandler(commonThreads, requestManager, bigDataService)); //
+                        ch.pipeline().addLast(new SyncDataServerHandler(commonThreads, requestManager, bigDataService, clientManager)); //
                     }
                 })
                 .bind(8787);
+    }
+
+    public ClientManager getClientManager() {
+        return clientManager;
     }
 }

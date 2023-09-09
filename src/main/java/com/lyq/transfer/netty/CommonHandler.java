@@ -56,7 +56,7 @@ public class CommonHandler extends SimpleChannelInboundHandler<Command> {
             return;
         }
 
-        responseFuture.realse();
+        responseFuture.release();
     }
 
 

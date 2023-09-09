@@ -42,7 +42,7 @@ public class ResponseFuture {
         return createTimeStamp;
     }
 
-    public void realse(){
+    public void release(){
         countDownLatch.countDown();
     }
 

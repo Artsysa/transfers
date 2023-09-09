@@ -12,7 +12,5 @@ public interface SyncDataCommandProcessor {
 
     boolean match(SyncDataCommand command);
 
-    default void unconnection() {
-
-    }
+    default void unconnection() {}
 }

@@ -5,9 +5,20 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.Tag;
+import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.mp4.media.Mp4MediaDirectory;
+import com.drew.metadata.mp4.media.Mp4MetaDirectory;
 import com.lyq.syncdata.constant.CommandEnum;
 import com.lyq.syncdata.constant.ServerResponseEnum;
-import com.lyq.syncdata.pojo.*;
+import com.lyq.syncdata.constant.SyncDataConsts;
+import com.lyq.syncdata.index.parser.FileNameParserFactory;
+import com.lyq.syncdata.pojo.CheckPointFileInfo;
+import com.lyq.syncdata.pojo.ClientMonitor;
+import com.lyq.syncdata.pojo.OrderFile;
+import com.lyq.syncdata.pojo.Progress;
+import com.lyq.syncdata.pojo.ServerResponse;
+import com.lyq.syncdata.pojo.SyncDataCommand;
+import com.lyq.syncdata.pojo.UploadFile;
 import com.lyq.syncdata.service.CheckPointService;
 import com.lyq.syncdata.util.TimeUtil;
 import io.netty.channel.ChannelHandlerContext;
@@ -16,10 +27,13 @@ import org.apache.commons.lang3.StringUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -32,6 +46,7 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
     private static final CommandEnum dowonloadFileEnum = CommandEnum.DOWONLOAD_FILE;
     private static final CommandEnum dowonloadPictureEnum = CommandEnum.DOWONLOAD_PICTURE;
     private final ThreadPoolExecutor commonWorks;
+    private final ExecutorService singleWork;
     private final AtomicInteger fileId = new AtomicInteger(0);
     private final RequestManager requestManager;
     private volatile boolean connection = true;
@@ -39,14 +54,20 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
     public DownLoadFileProcessor(ThreadPoolExecutor commonWorks, RequestManager requestManager) {
         this.commonWorks = commonWorks;
         this.requestManager = requestManager;
+        this.singleWork = Executors.newSingleThreadExecutor();
     }
 
     @Override
     public void processor(ChannelHandlerContext ctx, SyncDataCommand command) {
-        File storeRootDir = new File(SaveDataProcessor.getRootDir());
-        File[] files = storeRootDir.listFiles();
-        if(files != null){
-            List<String> paths = Arrays.stream(files).map(File::getAbsolutePath).filter(path -> !path.contains(".DS_Store")).collect(Collectors.toList());
+        File storeRootDir = new File(SyncDataConsts.rootDir);
+        File oneplusDir = new File(SyncDataConsts.oneplusDir);
+        File[] oneplusFiles = oneplusDir.listFiles();
+        File[] storeRootFiles = storeRootDir.listFiles();
+
+        if(storeRootFiles != null && oneplusFiles != null){
+            List<File> fileList = Arrays.stream(storeRootFiles).collect(Collectors.toList());
+            fileList.addAll(Arrays.stream(oneplusFiles).collect(Collectors.toList()));
+            List<String> paths = fileList.stream().map(File::getAbsolutePath).filter(path -> !path.contains(".DS_Store")).collect(Collectors.toList());
             Progress progress = JSON.parseObject(command.getBody(), Progress.class);
             if(paths.size() > 0){
                 if(dowonloadPictureEnum.getCode().equals(command.getCode())){
@@ -57,40 +78,51 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
                 }
                 List<String> smalleFilePath = new ArrayList<>();
                 List<String> notCompleteFile = new ArrayList<>();
-                List<CheckPointFileInfo> needUploadFiles = CheckPointService.getNeedUploadFiles(progress, paths).stream().sorted(
+                List<CheckPointFileInfo> needUploadFiles = CheckPointService.getNeedUploadFiles(progress, paths).stream()
+                        .sorted(
                         (fist, last) -> {
-                            long fistlong = getRealCreateTime(new File(fist.getPath()));
-                            long lastlong = getRealCreateTime(new File(last.getPath()));
+                            long fistlong = getDate(new File(fist.getPath()));
+                            long lastlong = getDate(new File(last.getPath()));
                             return Long.compare(fistlong, lastlong);
-                        }
-                ).collect(Collectors.toList());
-                ClientMonitor clientMonitor = new ClientMonitor();
-                calculationTotalSize(needUploadFiles, smalleFilePath, notCompleteFile, clientMonitor);
-                clientMonitor.setServerFileCount(paths.size());
-                clientMonitor.setFileCount(needUploadFiles.size());
-                CommandCallable commandCallable = (syncDataCommand) -> {
-                    ServerResponse serverResponse = JSON.parseObject(syncDataCommand.getBody(), ServerResponse.class);
-                    if (ServerResponseEnum.SAVE_SUCCESS.getCode().equals(serverResponse.getCode())) {
-                        for (CheckPointFileInfo checkPointFileInfo : needUploadFiles) {
-                            if(!connection){
-                                ctx.flush();
-                                break;
+                        })
+                        .collect(Collectors.toList());
+
+                OrderFile orderFile = new OrderFile();
+                orderFile.setFileName(needUploadFiles.stream().map(checkPointFileInfo -> checkPointFileInfo.getPath().substring(checkPointFileInfo.getPath().lastIndexOf("/"))).collect(Collectors.toList()));
+                List<String> finalPaths = paths;
+                SyncDataCommand createFileCommand = buildCommand(CommandEnum.CREATE_FILE, orderFile, (createFileCommandResponse) -> {
+                    ServerResponse createFileResponse = JSON.parseObject(createFileCommandResponse.getBody(), ServerResponse.class);
+                    if(ServerResponseEnum.SAVE_SUCCESS.getCode().equals(createFileResponse.getCode())){
+                        ClientMonitor clientMonitor = new ClientMonitor();
+                        calculationTotalSize(needUploadFiles, smalleFilePath, notCompleteFile, clientMonitor);
+                        clientMonitor.setServerFileCount(finalPaths.size());
+                        clientMonitor.setFileCount(needUploadFiles.size());
+                        CommandCallable commandCallable = (syncDataCommand) -> {
+                            ServerResponse serverResponse = JSON.parseObject(syncDataCommand.getBody(), ServerResponse.class);
+                            if (ServerResponseEnum.SAVE_SUCCESS.getCode().equals(serverResponse.getCode())) {
+                                for (CheckPointFileInfo checkPointFileInfo : needUploadFiles) {
+                                    if(!connection){
+                                        ctx.flush();
+                                        break;
+                                    }
+                                    String path = checkPointFileInfo.getPath();
+                                    if (notCompleteFile.contains(path)) {
+                                        sendBigData(new File(path), ctx, false, checkPointFileInfo.getStartIndex());
+                                    } else if (smalleFilePath.contains(path)) {
+                                        sendSmalleData(new File(path), ctx);
+                                    } else {
+                                        sendBigData(new File(path), ctx);
+                                    }
+                                }
                             }
-                            String path = checkPointFileInfo.getPath();
-                            if (notCompleteFile.contains(path)) {
-                                sendBigData(new File(path), ctx, false, checkPointFileInfo.getStartIndex());
-                            } else if (smalleFilePath.contains(path)) {
-                                sendSmalleData(new File(path), ctx);
-                            } else {
-                                sendBigData(new File(path), ctx);
-                            }
-                        }
+                        };
+                        SyncDataCommand serverCommand = buildCommand(CommandEnum.GET_SYNC_PROGRESS, clientMonitor, null,true);
+                        serverCommand.setCommandId(command.getCommandId());
+                        requestManager.put(command.getCommandId(), new RequestFuture(commandCallable, command));
+                        ctx.channel().writeAndFlush(serverCommand);
                     }
-                };
-                SyncDataCommand serverCommand = buildCommand(CommandEnum.GET_SYNC_PROGRESS, clientMonitor, null,true);
-                serverCommand.setCommandId(command.getCommandId());
-                requestManager.put(command.getCommandId(), new RequestFuture(commandCallable, command));
-                ctx.channel().writeAndFlush(serverCommand);
+                });
+                ctx.channel().writeAndFlush(createFileCommand);
             }
         }
     }
@@ -99,7 +131,7 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
         for (CheckPointFileInfo checkPointFileInfo : needSaveDataPath) {
             File file = new File(checkPointFileInfo.getPath());
             long needUploadTotalSize;
-            if(checkPointFileInfo.getCompleteFile()){
+            if(Boolean.TRUE.equals(checkPointFileInfo.getCompleteFile())){
                 needUploadTotalSize = file.length();
                 clientMonitor.setTotalFileSize(clientMonitor.getTotalFileSize() + needUploadTotalSize);
             }else{
@@ -118,7 +150,7 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
     }
 
     public void sendSmalleData(File file, ChannelHandlerContext ctx){
-        commonWorks.execute(() -> {
+        singleWork.execute(() -> {
             while(!ctx.channel().isWritable() && connection){
 
             }
@@ -147,8 +179,9 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
     }
 
     public void sendBigData(File bigFile, ChannelHandlerContext ctx ,boolean complete, long readIndex){
-        commonWorks.execute(() -> {
+        singleWork.execute(() -> {
             if(ctx.channel().isWritable() && connection){
+                RandomAccessFile randomAccessFile = null;
                 try {
                     UploadFile uploadFile = new UploadFile();
                     getFileByPath(bigFile, uploadFile);
@@ -159,9 +192,11 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
                     }
                     uploadFile.setBigFile(true);
                     uploadFile.setId(fileId.incrementAndGet());
+
+                    randomAccessFile = new RandomAccessFile(bigFile, "r");
                     long totalSize = uploadFile.getTotalSize();
-                    RandomAccessFile randomAccessFile = new RandomAccessFile(bigFile, "r");
                     //long preSize = 1048576;
+                    //long preSize = 50485;
                     long preSize = 2242880;
                     //3m
                     int multipleCount = (int) (totalSize / preSize);
@@ -187,6 +222,7 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
                         randomAccessFile.read(b);
                         copyUploadFile.setContain(b);
 
+
                         SyncDataCommand command = buildCommand(CommandEnum.DOWONLOAD_FILE, copyUploadFile, (syncDataCommand) -> {
                             ServerResponse serverResponse = JSON.parseObject(syncDataCommand.getBody(), ServerResponse.class);
                             checkAndFlush(ctx);
@@ -200,8 +236,15 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
                             break;
                         }
                     }
+
                 } catch (IOException e) {
                     e.printStackTrace();
+                }finally {
+                    try {
+                        randomAccessFile.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
             }else{
                 sendBigData(bigFile, ctx);
@@ -288,6 +331,7 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
         return dowonloadFileEnum.getCode().equals(command.getCode()) || dowonloadPictureEnum.getCode().equals(command.getCode());
     }
 
+    @Override
     public void unconnection() {
         connection = false;
     }
@@ -297,5 +341,42 @@ public class DownLoadFileProcessor implements SyncDataCommandProcessor{
             ctx.flush();
             ctx.close();
         }
+    }
+
+    public long getDate(File file){
+        long realPhotoTime = -1L;
+        try{
+            realPhotoTime = getRealPhotoTime(file);
+
+            if(realPhotoTime < 0){
+                String fileName = file.getName().substring(0, file.getName().lastIndexOf("."));
+                realPhotoTime = FileNameParserFactory.obtainParser(fileName).parser(fileName);
+            }
+
+        }catch (Exception e){
+           //continue
+        }
+        return realPhotoTime;
+    }
+
+    private long getRealPhotoTime(File file){
+        String timeString = null;
+        try{
+            Metadata metadata = ImageMetadataReader.readMetadata(file);
+            if(file.getName().contains("mp4")){
+                Mp4MetaDirectory firstDirectoryOfType = metadata.getFirstDirectoryOfType(Mp4MetaDirectory.class);
+                if(firstDirectoryOfType != null){
+                    timeString = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(firstDirectoryOfType.getDate(Mp4MediaDirectory.TAG_CREATION_TIME));
+                }
+            }else{
+                ExifSubIFDDirectory directory = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+                if(directory != null){
+                    timeString = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(directory.getDateOriginal());
+                }
+            }
+        }catch (Exception e){
+            //continue
+        }
+        return StringUtils.isNotBlank(timeString) ? TimeUtil.yyyyMMddHHmmss2TimeStamp(timeString) : -1L;
     }
 }
