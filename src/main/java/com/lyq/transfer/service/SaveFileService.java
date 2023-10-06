@@ -42,7 +42,8 @@ public class SaveFileService {
         List<FileMD5Info> clientFileMD5InfoList = JSON.parseArray(new String(command.getBody()), FileMD5Info.class);
         Set<String> set = Sets.newHashSet();
         Map<String, FileMD5Info> localFileMD5Map = IndexService.getIndexElementWapper()
-                .getIndexElementList().stream()
+                .getIndexElementList()
+            .stream()
                 .map(indexElement -> {
                     FileMD5Info fileMD5Info = new FileMD5Info();
                     fileMD5Info.setFilePath(indexElement.getPath());
