@@ -35,6 +35,17 @@ public class IndexService {
     }
 
     public static IndexElementWapper getIndexElementWapper(){
+      return getIndexElementWapper(true);
+    }
+
+    public static IndexElementWapper getIndexElementWapper(boolean rebuild){
+        if(rebuild){
+            try {
+                buildIndexJsonFile();
+            } catch (Exception  e) {
+                e.printStackTrace();
+            }
+        }
         return (IndexElementWapper)FileUtil.getObjectFromFile(CommonConsts.indexFile, IndexElementWapper.class);
     }
 
@@ -45,13 +56,14 @@ public class IndexService {
             indexDirFile.mkdirs();
         }
 
-        Map<String, IndexElement> indexElementMap = Optional.ofNullable(getIndexElementWapper())
+        Map<String, IndexElement> indexElementMap = Optional.ofNullable(getIndexElementWapper(false))
                 .map(IndexElementWapper::getIndexElementList)
                 .filter(CollectionUtil::isNotEmpty)
                 .map((list) -> list.stream().collect(Collectors.toMap(IndexElement::getPath, Function.identity())))
                 .orElse(Maps.newHashMap());
 
         List<File> allFile = FileUtil.getAllFile();
+        long currentTimestamp = System.currentTimeMillis();
         final List<IndexElement> elementList = Lists.newArrayList();
         for (File storeFile : allFile) {
 
@@ -80,7 +92,7 @@ public class IndexService {
 
             IndexElement indexElement = new IndexElement();
             indexElement.setFileName(storeFile.getName());
-            indexElement.setCreateTimeStamp(realPhotoTime);
+            indexElement.setCreateTimeStamp(realPhotoTime > currentTimestamp ? -1L : realPhotoTime);
             indexElement.setPath(storeFile.getAbsolutePath());
             indexElement.setMD5(FileUtil.calculateMD5(storeFile.getAbsolutePath()));
             elementList.add(indexElement);

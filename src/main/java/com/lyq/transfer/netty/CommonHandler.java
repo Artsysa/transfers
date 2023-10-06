@@ -76,6 +76,9 @@ public class CommonHandler extends SimpleChannelInboundHandler<Command> {
             case CLIENT_DOWNLOAD_INCREMENT:
                 DownloadFileService.downloadIncrement(command, ctx);
                 break;
+            case GET_SERVER_INDEX_FILE:
+                DownloadFileService.getServerIndexFile(command, ctx);
+                break;
             default:
         }
     }

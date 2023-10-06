@@ -20,6 +20,7 @@ public enum CommandConsts {
     REGISTER_CLIENT(1026, "注册客户端"),
     CLIENT_DOWNLOAD_INCREMENT(1027, "客户端下载增量数据"),
     CLIENT_DOWNLOAD_ALL(1028, "客户端下载全部数据"),
+    GET_SERVER_INDEX_FILE(1029, "获取服务器index索引数据"),
 
 
 

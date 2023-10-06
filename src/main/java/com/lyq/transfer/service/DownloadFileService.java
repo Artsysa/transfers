@@ -7,6 +7,7 @@ import com.lyq.transfer.adapter.FileUploadAdapter;
 import com.lyq.transfer.constant.CommandConsts;
 import com.lyq.transfer.constant.CommonConsts;
 import com.lyq.transfer.index.IndexElement;
+import com.lyq.transfer.index.IndexElementWapper;
 import com.lyq.transfer.index.IndexService;
 import com.lyq.transfer.netty.service.CommonThreadService;
 import com.lyq.transfer.netty.service.LimitService;
@@ -28,6 +29,15 @@ import java.util.stream.Collectors;
  * created by lyq
  */
 public class DownloadFileService {
+
+
+    public static void getServerIndexFile(Command requestCommand, ChannelHandlerContext ctx){
+        IndexElementWapper indexElementWapper = IndexService.getIndexElementWapper();
+        for (IndexElement indexElement : indexElementWapper.getIndexElementList()) {
+            indexElement.setPath(null);
+        }
+        RemotingServiceWapper.responseSuccess(requestCommand, indexElementWapper.getIndexElementList(), ctx);
+    }
 
     public static void downloadIncrement(Command requestCommand, ChannelHandlerContext ctx){
 
