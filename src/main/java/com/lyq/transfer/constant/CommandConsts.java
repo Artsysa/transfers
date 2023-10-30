@@ -21,6 +21,7 @@ public enum CommandConsts {
     CLIENT_DOWNLOAD_INCREMENT(1027, "客户端下载增量数据"),
     CLIENT_DOWNLOAD_ALL(1028, "客户端下载全部数据"),
     GET_SERVER_INDEX_FILE(1029, "获取服务器index索引数据"),
+    GET_SERVER_FILE_LIST(1030, "从服务器下载指定文件"),
 
 
 

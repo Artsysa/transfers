@@ -33,10 +33,30 @@ public class DownloadFileService {
 
     public static void getServerIndexFile(Command requestCommand, ChannelHandlerContext ctx){
         IndexElementWapper indexElementWapper = IndexService.getIndexElementWapper();
-        for (IndexElement indexElement : indexElementWapper.getIndexElementList()) {
-            indexElement.setPath(null);
-        }
         RemotingServiceWapper.responseSuccess(requestCommand, indexElementWapper.getIndexElementList(), ctx);
+    }
+
+
+    public static void downloadFileList(Command requestCommand, ChannelHandlerContext ctx){
+
+        List<String> clientMD5InfoList = JSON.parseArray(new String(requestCommand.getBody()), String.class);
+
+        Map<String, List<IndexElement>> localIndexElemetnList = IndexService.getIndexElementWapper().getIndexElementList().stream().collect(Collectors.groupingBy(IndexElement::getMD5));
+
+        List<IndexElement> incrementFileList = Lists.newArrayList();
+
+        for (String md5 : clientMD5InfoList) {
+            List<IndexElement> indexElements = localIndexElemetnList.get(md5);
+            if(CollectionUtil.isNotEmpty(indexElements)){
+                incrementFileList.add(indexElements.get(0));
+            }
+        }
+
+        RemotingServiceWapper.responseSuccess(requestCommand, incrementFileList.size(), ctx);
+
+        CommonThreadService.submitTask(() ->{
+            doUploadIncrement(incrementFileList.stream().map(IndexElement::getPath).collect(Collectors.toList()), ctx);
+        });
     }
 
     public static void downloadIncrement(Command requestCommand, ChannelHandlerContext ctx){
