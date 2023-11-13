@@ -1,13 +1,15 @@
 package com.lyq.transfer.duplic;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.lyq.transfer.constant.CommonConsts;
 import com.lyq.transfer.index.IndexElement;
 import com.lyq.transfer.index.IndexService;
-
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +35,6 @@ public class DuplicateService {
                 .filter(CollectionUtil::isNotEmpty)
                 .map((list) -> list.stream().collect(Collectors.groupingBy(IndexElement::getFileName)))
                 .orElse(Maps.newHashMap());
-
-        List<IndexElement> duplicFileList = Lists.newArrayList();
 
         indexElementNameMap.forEach((name, indexElementList) -> {
             if(indexElementList.size() > 1){
@@ -75,11 +75,8 @@ public class DuplicateService {
             }
         }
 
-        InputStream is = null;
-        OutputStream os = null;
-        try {
-            is = new FileInputStream(fileTemp);
-            os = new FileOutputStream(fileAim);
+        try(InputStream is = Files.newInputStream(fileTemp.toPath());
+           OutputStream os = Files.newOutputStream(fileAim.toPath())){
             byte[] buffer = new byte[1024];
             int length;
             while ((length = is.read(buffer)) > 0) {
@@ -88,12 +85,7 @@ public class DuplicateService {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            try {
-                is.close();
-                os.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            fileTemp.delete();
         }
     }
 }

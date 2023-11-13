@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
+@RequestMapping("/store")
 public class FileController {
 
     static Map<String, List<IndexElement>> localIndexElemetnList = null;
@@ -33,7 +34,7 @@ public class FileController {
                 Collectors.groupingBy(IndexElement::getMD5));
     }
 
-    @RequestMapping(value = "/store/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
+    @RequestMapping(value = "/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
     public ResponseEntity<byte[]> getFile(@PathVariable("md5") String md5) throws IOException {
 
         IndexElement indexElement = localIndexElemetnList.get(md5).get(0);
@@ -44,7 +45,7 @@ public class FileController {
         headers.setContentLength(bytes.length);
         return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
-    @RequestMapping(value = "/store/zip/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
+    @RequestMapping(value = "/zip/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
     public ResponseEntity<byte[]> getZipFile(@PathVariable("md5") String md5) throws IOException {
 
         IndexElement indexElement = localIndexElemetnList.get(md5).get(0);

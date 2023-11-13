@@ -83,7 +83,7 @@ public class DownloadFileService {
 
 
 
-    private static void doUploadIncrement(List<String> incrementFileList, ChannelHandlerContext ctx){
+    public static void doUploadIncrement(List<String> incrementFileList, ChannelHandlerContext ctx){
         for (String abstractPath : incrementFileList) {
             try{
 
