@@ -8,12 +8,11 @@ import com.drew.metadata.mp4.media.Mp4MediaDirectory;
 import com.drew.metadata.mp4.media.Mp4MetaDirectory;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.lyq.syncdata.util.TimeUtil;
 import com.lyq.transfer.constant.CommonConsts;
+import com.lyq.transfer.index.cache.IndexCacheManager;
 import com.lyq.transfer.index.parser.FileNameParserFactory;
 import com.lyq.transfer.util.FileUtil;
-import org.apache.commons.lang3.StringUtils;
-
+import com.lyq.transfer.util.TimeUtil;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -24,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * created by lyq
@@ -42,6 +42,7 @@ public class IndexService {
         if(rebuild){
             try {
                 buildIndexJsonFile();
+                IndexCacheManager.notifly();
             } catch (Exception  e) {
                 e.printStackTrace();
             }

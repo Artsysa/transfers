@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.lyq</groupId>
-    <artifactId>sync-data</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>sync-data</name>
-    <description>Demo project for Spring Boot</description>
+    <artifactId>transfer</artifactId>
+    <version>0.0.1</version>
+    <name>transfer</name>
+    <description>文件传输助手</description>
     <properties>
         <java.version>1.8</java.version>
     </properties>

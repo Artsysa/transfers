@@ -1,7 +1,7 @@
 package com.lyq.transfer.index.parser;
 
-import com.lyq.syncdata.util.TimeUtil;
 import com.lyq.transfer.constant.FileNamePrefixConsts;
+import com.lyq.transfer.util.TimeUtil;
 
 /**
  * created by lyq

@@ -2,16 +2,13 @@ package com.lyq.transfer.controller;
 
 import com.lyq.transfer.constant.CommonConsts;
 import com.lyq.transfer.index.IndexElement;
-import com.lyq.transfer.index.IndexService;
+import com.lyq.transfer.index.cache.IndexCacheManager;
 import com.lyq.transfer.util.FFmpegUtil;
 import com.lyq.transfer.util.VideoThumbnailGenerator;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import net.coobird.thumbnailator.Thumbnails;
 import org.jcodec.common.io.IOUtils;
 import org.springframework.http.HttpHeaders;
@@ -26,18 +23,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/store")
 public class FileController {
 
-    static Map<String, List<IndexElement>> localIndexElemetnList = null;
-
-
-    static {
-        localIndexElemetnList =  IndexService.getIndexElementWapper().getIndexElementList().stream().collect(
-                Collectors.groupingBy(IndexElement::getMD5));
-    }
-
     @RequestMapping(value = "/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
     public ResponseEntity<byte[]> getFile(@PathVariable("md5") String md5) throws IOException {
 
-        IndexElement indexElement = localIndexElemetnList.get(md5).get(0);
+        IndexElement indexElement = IndexCacheManager.getLocalIndexElemetnList().get(md5).get(0);
         InputStream inputStream = new FileInputStream(indexElement.getPath());
         byte[] bytes = IOUtils.toByteArray(inputStream);
         HttpHeaders headers = new HttpHeaders();
@@ -48,13 +37,13 @@ public class FileController {
     @RequestMapping(value = "/zip/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
     public ResponseEntity<byte[]> getZipFile(@PathVariable("md5") String md5) throws IOException {
 
-        IndexElement indexElement = localIndexElemetnList.get(md5).get(0);
+        IndexElement indexElement = IndexCacheManager.getLocalIndexElemetnList().get(md5).get(0);
         File file = null;
         if(FFmpegUtil.isVideo(indexElement.getPath())){
             String fileZipPath = CommonConsts.cacheDir + "/" + indexElement.getFileName().substring(0, indexElement.getFileName().lastIndexOf(".") + 1) +"jpg";
             file = new File(fileZipPath);
             if(!file.exists()){
-                VideoThumbnailGenerator.generateThumbnails(indexElement.getPath(), fileZipPath, 100, 100, 10.0);
+                VideoThumbnailGenerator.generateThumbnails(indexElement.getPath(), fileZipPath, 100, 100, 1.0);
             }
         }else{
             String fileZipPath = CommonConsts.cacheDir + "/" + indexElement.getFileName();
