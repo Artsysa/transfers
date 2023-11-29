@@ -82,6 +82,7 @@ public class SaveFileService {
                     IndexElement indexElement = iterator.next();
                     if(fileNameSet.contains(indexElement.getFileName())){
                         iterator.remove();
+                        cn.hutool.core.io.FileUtil.del(indexElement.getPath());
                         count++;
                     }
                 }
