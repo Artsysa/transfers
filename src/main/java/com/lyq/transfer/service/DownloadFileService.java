@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -137,6 +138,11 @@ public class DownloadFileService {
     }
 
     private static void processorResopnse(Command serverResponseCommand, UploadFile uploadFile, ChannelHandlerContext ctx){
+
+        if(Objects.isNull(ctx) ||!ctx.channel().isActive() || !ctx.channel().isOpen()){
+            return;
+        }
+
         Response response = JSON.parseObject(serverResponseCommand.getBody(), Response.class);
         CommandConsts commandResponseCode = CommandConsts.getCommandByCode(response.getCode());
         LimitService.releaseRequest();

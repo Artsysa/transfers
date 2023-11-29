@@ -5,10 +5,6 @@ import com.lyq.transfer.index.IndexElement;
 import com.lyq.transfer.index.cache.IndexCacheManager;
 import com.lyq.transfer.util.FFmpegUtil;
 import com.lyq.transfer.util.VideoThumbnailGenerator;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import net.coobird.thumbnailator.Thumbnails;
 import org.jcodec.common.io.IOUtils;
 import org.springframework.http.HttpHeaders;
@@ -19,6 +15,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 @Controller
 @RequestMapping("/store")
 public class FileController {
@@ -27,11 +29,16 @@ public class FileController {
     public ResponseEntity<byte[]> getFile(@PathVariable("md5") String md5) throws IOException {
 
         IndexElement indexElement = IndexCacheManager.getLocalIndexElemetnList().get(md5).get(0);
-        InputStream inputStream = new FileInputStream(indexElement.getPath());
-        byte[] bytes = IOUtils.toByteArray(inputStream);
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.IMAGE_JPEG);
-        headers.setContentLength(bytes.length);
+        byte[] bytes = null;
+        try(InputStream inputStream = Files.newInputStream(Paths.get(indexElement.getPath()))){
+            bytes = IOUtils.toByteArray(inputStream);
+            headers = new HttpHeaders();
+            headers.setContentType(MediaType.IMAGE_JPEG);
+            headers.setContentLength(bytes.length);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
         return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
     @RequestMapping(value = "/zip/{md5}", produces = MediaType.IMAGE_JPEG_VALUE)
@@ -60,11 +67,14 @@ public class FileController {
             }
         }
 
-        InputStream inputStream = new FileInputStream(file);
-        byte[] bytes = IOUtils.toByteArray(inputStream);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.IMAGE_JPEG);
-        headers.setContentLength(bytes.length);
+        HttpHeaders headers;
+        byte[] bytes = null;
+        try(InputStream inputStream = Files.newInputStream(file.toPath())){
+            bytes = IOUtils.toByteArray(inputStream);
+            headers = new HttpHeaders();
+            headers.setContentType(MediaType.IMAGE_JPEG);
+            headers.setContentLength(bytes.length);
+        }
         return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 }

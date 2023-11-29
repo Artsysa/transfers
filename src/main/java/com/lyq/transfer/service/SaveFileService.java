@@ -6,15 +6,22 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.lyq.transfer.constant.CommonConsts;
+import com.lyq.transfer.index.IndexElement;
+import com.lyq.transfer.index.IndexElementWapper;
 import com.lyq.transfer.index.IndexService;
 import com.lyq.transfer.netty.service.CommonThreadService;
 import com.lyq.transfer.netty.service.RemotingServiceWapper;
 import com.lyq.transfer.pojo.Command;
 import com.lyq.transfer.pojo.FileMD5Info;
 import com.lyq.transfer.pojo.UploadFile;
+import com.lyq.transfer.util.FileUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +34,7 @@ import java.util.stream.Collectors;
  */
 public class SaveFileService {
 
+    private static final Logger log = LoggerFactory.getLogger(SaveFileService.class);
     private static final Map<String, RandomAccessFile> bigFileMap = Maps.newConcurrentMap();
 
 
@@ -54,15 +62,38 @@ public class SaveFileService {
                 .collect(Collectors.toMap(FileMD5Info::getMD5, Function.identity()));
 
         List<String> needFilePath = Lists.newArrayList();
+        Set<String> fileNameSet = Sets.newHashSet();
         if(CollectionUtil.isNotEmpty(clientFileMD5InfoList)){
             for (FileMD5Info fileMD5Info : clientFileMD5InfoList) {
                 FileMD5Info needFileMD5Info = localFileMD5Map.get(fileMD5Info.getMD5());
                 if(Objects.isNull(needFileMD5Info)){
+                    fileNameSet.add(fileMD5Info.getFilePath().substring(fileMD5Info.getFilePath().lastIndexOf("/") + 1));
                     needFilePath.add(fileMD5Info.getFilePath());
                 }
             }
         }
 
+        if(CollectionUtil.isNotEmpty(fileNameSet)){
+            CommonThreadService.submitTask(() -> {
+                IndexElementWapper indexElementWapper = IndexService.getIndexElementWapper(false);
+                int count = 0;
+                Iterator<IndexElement> iterator = indexElementWapper.getIndexElementList().iterator();
+                while(iterator.hasNext()){
+                    IndexElement indexElement = iterator.next();
+                    if(fileNameSet.contains(indexElement.getFileName())){
+                        iterator.remove();
+                        count++;
+                    }
+                }
+
+                try {
+                    FileUtil.writeFile(CommonConsts.indexFile, indexElementWapper);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                log.info("脏数据md5清洗完成，总共清洗数量：{}", count);
+            });
+        }
 
         RemotingServiceWapper.responseSuccess(command, needFilePath);
     }
